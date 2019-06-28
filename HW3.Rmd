@@ -1,0 +1,273 @@
+---
+title: "HW3"
+author: "Ziran Xu"
+date: "3/25/2019"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Q1
+I take the number 0 as sunny and number 1 if it rains. 
+
+Hence need to generate 100 and 1000 samples. By the ”fair coin” proposal, simulate the conditions of rain or sunny in 100 or 1000 days. 
+
+Then apply accept/reject technique. Only if a change from sun to rain is suggested by the proposal chain, we accept this "jump up" to a lighter state with probability 1/3 and reject it with probability 2/3.  That means need to judge the day i that equals to 0 and day i+1 equals to 1. If the r.v(uniform from 0 to 3) <=1 then the next day(which is i+1) is rain, otherwise it is sunny.
+
+Finally, get the ratio of rain days in all days to calculate the rainy day probability.
+```{r}
+rnum_q1 = runif(n=100,min = 0,max = 1)
+samplestate_one = 1:100   #samplessize 100
+for(i in 1:100)           
+{
+  if(rnum_q1[i] >0.5)      # ”fair coin” proposal
+    samplestate_one[i] = 1    
+  else
+    samplestate_one[i] = 0
+}
+for(i in 1:99)  
+{
+  if(samplestate_one[i] == 0 & samplestate_one[i+1] ==1)  #apply accept/reject technique
+  {
+    index = runif(n=1,min = 0,max = 3)
+    if(index <=1)
+      samplestate_one[i+1] = 1
+    else
+      samplestate_one[i+1] = 0
+  }
+}
+p = length(which(samplestate_one == 1))/100
+cat("Rainy days probability with 100 samples is",p)
+
+rnum_q1 = runif(n=1000,min = 0,max = 1)
+samplestate_one = 1:1000   #samplessize 100
+for(i in 1:1000)
+{
+  if(rnum_q1[i] >0.5)
+    samplestate_one[i] = 1    
+  else
+    samplestate_one[i] = 0
+}
+for(i in 1:999)  #apply accept/reject technique
+{
+  if(samplestate_one[i] == 0 & samplestate_one[i+1] ==1)
+  {
+    index = runif(n=1,min = 0,max = 3)
+    if(index <=1)
+      samplestate_one[i+1] = 1
+    else
+      samplestate_one[i+1] = 0
+  }
+}
+p = length(which(samplestate_one == 1))/1000
+cat("\nRainy days probability with 1000 samples is",p)
+```
+## Q2
+For IMA method. Get the ratio R(theta1,theta2) = f(theta1)g(theta2)/(f(theta2)g(theta1))
+  f is the posterior density( Poisson likelihood for the data x = (3, 1, 4, 3, 2) and exponential prior with the mean 2, also known as Gamma(1, 0.5)) and g is the proposal density (exponential proposal density with lambda =2).
+  
+f(theta) = Pi(theta|x) = Pi(theta)*L(x,theta)/integrate(Pi(theta)*L(x,theta))
+  Pi(theta) = 0.5*exp(-0.5*theta)             (exponential distribution as Gamma(1, 0.5))
+  L(x,theta) = theta^(3+1+4+3+2)*exp(-5*theta) / (3!*1!*4!*3!*2!)
+             = theta^13*exp(-5*theta)/1728          (Poisson likelihood with data x=(3,1,4,3,2))
+
+Generate a supplementary uniform sample ut
+Then define zt = yt if R(yt,z(t-1)) >= ut otherwise zt = z(t-1)  (accept-reject). 
+The zt is the new Markov chain whose stationary distribution coincides with the target posterior distribution. Hence to calculate the mean to estimate the posterior mean.
+
+```{r}
+u11 = runif(n=1000,min = 0,max = 1)  
+y1 = -log(1-u11) / 2     #proposal chain by the exponential distribution of lambda = 2
+u12 = runif(n=1000,min = 0,max = 1)   #supplementary uniform sample
+R1 = function(theta1,theta2)
+{
+  f1 =  0.5*exp(-0.5*theta1)*theta1^13*exp(-5*theta1)/1728*theta2*exp(-2*theta2)  #f(theta1)*g(theta2)
+  f2 = 0.5*exp(-0.5*theta2)*theta2^13*exp(-5*theta2)/1728*theta1*exp(-2*theta1)  # f(theta2)*g(theta1)
+  return(f1/f2)
+}
+
+z1 = 1:1001
+z1[1] = runif(1,min = 0,max = 1)   # initial value z0
+for(i in 1:1000)
+{
+  if(R1(y1[i],z1[i])>=u12[i])
+    z1[i+1] = y1[i]
+  else
+    z1[i+1] = z1[i]
+}
+cat("The posterior mean is ",mean(z1[2:1001]))
+```
+## Q3
+For RWMHA method is similiar with the IMA method. The difference is about the ratio R(theta1,theta2) = f(theta1)/f(theta2) since proposal is its symmetry.
+```{r}
+y2 = rnorm(n=1000,mean = 2,sd=2)   #proposal chain sigma =2
+u22 = runif(n=1000,min = 0,max = 1)   #supplementary uniform sample
+R2 = function(theta1,theta2)
+{
+  f1 =  0.5*exp(-0.5*theta1)*theta1^13*exp(-5*theta1)/1728      #f(theta1)
+  f2 = 0.5*exp(-0.5*theta2)*theta2^13*exp(-5*theta2)/1728    # f(theta2)
+  return(f1/f2)
+}
+
+z2 = 1:1001
+z2[1] = runif(1,min = 0,max = 1)   # initial value z0
+for(i in 1:1000)
+{
+  if(R2(y2[i],z2[i])>=u22[i])
+    z2[i+1] = y2[i]
+  else
+    z2[i+1] = z2[i]
+}
+cat("The posterior mean is ",mean(z2[2:1001]))
+```
+## Q4
+Calculate Geweke statistics for the chains obtained in Exercise 3.2 and Exercise 3.3
+Geweke suggested using the first 0.1N and the last 0.5N sample elements.
+Since sample size N = 1000.
+Hence select the sample from 0 to 100 and from 501 to 1000.
+There is a function in R to get the Geweke.
+```{r}
+library(coda)
+geweke.diag(z1[2:1001], frac1=0.1, frac2=0.5) 
+geweke.diag(z2[2:1001], frac1=0.1, frac2=0.5)
+```
+## Q5
+Since the number of chains should be at least ten for a single parameter.(I run 10 times here to get 10 chains)
+B = M/(N-1) var(theta) ; W = 1/N *sum(var(theta(i)))   here M is the length of each chain and N is the number of the chain.
+V = (1 − 2/N)W + (2/N)B
+R = sqrt(V/W)
+```{r}
+library(coda)
+x1 = list()
+for(i in 1:10)
+{
+  u1 = runif(n=1000,min = 0,max = 1)  
+y = -log(1-u1) / 2  #proposal chain by the exponential distribution of lambda = 2
+u2 = runif(n=1000,min = 0,max = 1)   #supplementary uniform sample
+R = function(theta1,theta2)
+{
+  f1 =  0.5*exp(-0.5*theta1)*theta1^13*exp(-5*theta1)/1728*theta2*exp(-2*theta2)  #f(theta1)*g(theta2)
+  f2 = 0.5*exp(-0.5*theta2)*theta2^13*exp(-5*theta2)/1728*theta1*exp(-2*theta1)  # f(theta2)*g(theta1)
+  return(f1/f2)
+}
+
+z = 1:1001
+z[1] = runif(1,min = 0,max = 1)   # initial value z0
+for(i in 1:1000)
+{
+  if(R(y[i],z[i])>=u2[i])
+    z[i+1] = y[i]
+  else
+    z[i+1] = z[i]
+}
+x1 = cbind(x1,z)
+}
+B1 = 1000/(10-1) * var(unlist(x1))
+W1 = 1/10 *(var(unlist(x1[,1]))+var(unlist(x1[,2]))+var(unlist(x1[,3]))+var(unlist(x1[,4]))+var(unlist(x1[,5]))+var(unlist(x1[,6]))+var(unlist(x1[,7]))+var(unlist(x1[,8]))+var(unlist(x1[,9]))+var(unlist(x1[,10])))
+V1= (1 -2/10)*W1 + (2/10)*B1
+R1 = sqrt(V1/W1)
+cat("The Geweke statistics for the chains is", R1)
+
+x2 = list()
+for(i in 1:10)
+{
+  y = rnorm(n=1000,mean = 2,sd=2)   #proposal chain sigma =2
+u = runif(n=1000,min = 0,max = 1)   #supplementary uniform sample
+R = function(theta1,theta2)
+{
+  f1 =  0.5*exp(-0.5*theta1)*theta1^13*exp(-5*theta1)/1728      #f(theta1)
+  f2 = 0.5*exp(-0.5*theta2)*theta2^13*exp(-5*theta2)/1728    # f(theta2)
+  return(f1/f2)
+}
+
+z = 1:1001
+z[1] = runif(1,min = 0,max = 1)   # initial value z0
+for(i in 1:1000)
+{
+  if(R(y[i],z[i])>=u[i])
+    z[i+1] = y[i]
+  else
+    z[i+1] = z[i]
+}
+x2 = cbind(x2,z)
+}
+B2 = 1000/(10-1) * var(unlist(x2))
+W2 = 1/10 *(var(unlist(x2[,1]))+var(unlist(x2[,2]))+var(unlist(x2[,3]))+var(unlist(x2[,4]))+var(unlist(x2[,5]))+var(unlist(x2[,6]))+var(unlist(x2[,7]))+var(unlist(x2[,8]))+var(unlist(x2[,9]))+var(unlist(x2[,10])))
+V2= (1 -2/10)*W2 + (2/10)*B2
+R2 = sqrt(V2/W2)
+cat("\nThe Geweke statistics for the chains is", R2)
+```
+## Q6
+Apply burn-in with b = 0.1N and b = 0.5N for the chain obtained in Exercise 3.2 , Apply skip with k = 10.
+Since b = 0.1N and b = 0.5N . And there are 1000 numbers in a chain. Then select 101th to 500th to estimate the posterior mean.
+Since k =10. Then select the 1th , 11th, 21th .... 991th numbers(100 numbers totally) to estimate the posterior mean.
+```{r}
+cat("The posterior mean by burn-in is",mean(z1[101:500]))
+s1=1:100
+for( i in 1:100)
+{
+  s1[i] =z1[2+(i-1)]
+}
+cat("\nThe posterior mean by skip is",mean(s1))
+```
+From the results, they both improve the estimate
+
+## Q7
+Apply burn-in with b = 0.1N and b = 0.5N for the chain obtained in Exercise 3.3. Apply skip with k = 10.
+Same as last question by using chains from 3.3.
+```{r}
+cat("The posterior mean by burn-in is ",mean(z2[101:500]))
+s2=1:100
+for( i in 1:100)
+{
+  s2[i] =z2[2+(i-1)]
+}
+cat("\nThe posterior mean by skip is",mean(s2))
+```
+From the results, they both improve the estimate
+
+## Q8
+Calculate Geweke statistics for the chains obtained in Exercise 3.6 and Exercise 3.7. Compare these values.
+By using the function geweke.diag to calculate the chains from 3.6 and 3.7
+```{r}
+library(coda)
+geweke.diag(z1[101:500], frac1=0.1, frac2=0.5)
+geweke.diag(s1, frac1=0.1, frac2=0.5)
+geweke.diag(z2[101:500], frac1=0.1, frac2=0.5)
+geweke.diag(s2, frac1=0.1, frac2=0.5)
+```
+## Plots of Q2
+
+```{r}
+library(coda)
+my_outs = mcmc(z1[2:1001])
+traceplot(my_outs,main = "trace plot",xlab = "t",ylab = "z", smooth = F)
+
+```
+```{r}
+hist(z1[2:1001],xlab = "z",main = "histogram")
+```
+```{r}
+acf(z1[2:1001], lag.max = NULL, type = c("correlation", "covariance",
+  "partial"), plot = TRUE)
+```
+## Plot of Q3
+```{r}
+library(coda)
+my_outs = mcmc(z2[2:1001])
+traceplot(my_outs,main = "trace plot",xlab = "t",ylab = "z", smooth = F)
+
+```
+```{r}
+hist(z2[2:1001],xlab = "z",main = "histogram")
+```
+```{r}
+acf(z2[2:1001], lag.max = NULL, type = c("correlation", "covariance",
+  "partial"), plot = TRUE)
+```
